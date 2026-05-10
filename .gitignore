@@ -1,0 +1,4 @@
+__pycache__/  
+*.pyc  
+*.db  
+autotest_out.txt  
