@@ -100,17 +100,25 @@ def seed(db_path="world.db"):
     player = db.create_entity("player", "Kael", "day 1",
         "A wandering sellsword seeking fortune, scarred and cynical")
     db.set_physical(player, 25, 25, tavern)
-    db.set_stats(player, 4, 3, 5,
+    db.set_stats(player, 4, 4, 3, 3, 5, 4,
         {"fighting": 2, "persuasion": 2, "stealth": 1,
-         "perception": 1, "survival": 1})
+         "perception": 1, "survival": 1}, morale=10)
 
     # === ITEMS ===
     sword = db.create_entity("item", "Iron Sword", "day 1", "Worn but sharp")
     db.add_item(sword, player, equipped=1)
+    db.set_item_stats(sword, "weapon", weapon_base=3, weapon_type="slashing", weight=3.0)
     pot1 = db.create_entity("item", "Healing Potion", "day 1", "Restores 10 HP")
     db.add_item(pot1, player, qty=2)
+    db.set_item_stats(pot1, "consumable", weight=0.5)
     lockpick = db.create_entity("item", "Lockpick Set", "day 1", "Thin steel picks")
     db.add_item(lockpick, player)
+    db.set_item_stats(lockpick, "misc", weight=0.3)
+    leather_vest = db.create_entity("item", "Leather Vest", "day 1", "Worn but serviceable protection")
+    chain_shirt = db.create_entity("item", "Chain Shirt", "day 1", "Guard-issue chain links over padded cloth")
+    studded_leather = db.create_entity("item", "Studded Leather", "day 1", "Bandit armor, rough but effective")
+    db.add_item(leather_vest, player, equipped=1)
+    db.set_item_stats(leather_vest, "armor", armor_value=2, weight=4.0)
     silver_locket = db.create_entity("item", "Silver Locket", "day 1", "Contains a faded portrait, stolen from the tavern")
     voss_sword = db.create_entity("item", "Captain's Sword", "day 1", "Well-crafted steel with a griffin etching")
     bandit_axe = db.create_entity("item", "Bandit's Axe", "day 1", "Crude but heavy, stained with rust")
@@ -120,7 +128,7 @@ def seed(db_path="world.db"):
     magda = db.create_entity("npc", "Old Magda", "day 1",
         "Grizzled barkeeper, missing her left eye, trusts no one but pays for info")
     db.set_physical(magda, 12, 12, tavern)
-    db.set_stats(magda, 2, 4, 3, {"perception": 3, "intimidation": 2, "knowledge": 2})
+    db.set_stats(magda, 2, 2, 4, 4, 3, 3, {"perception": 3, "intimidation": 2, "knowledge": 2}, morale=50)
     db.set_relationship(magda, player, "disposition", 10, "Likes paying customers")
     db.add_goal(magda, "Find who stole her silver locket", 8)
     db.add_goal(magda, "Keep tavern running during festival", 5)
@@ -129,8 +137,8 @@ def seed(db_path="world.db"):
     garrett = db.create_entity("npc", "Garrett the Lean", "day 1",
         "Wiry pickpocket with a nervous laugh, always watching exits")
     db.set_physical(garrett, 10, 10, tavern)
-    db.set_stats(garrett, 3, 3, 2,
-        {"stealth": 3, "lockpicking": 2, "lying": 2, "dodge": 2})
+    db.set_stats(garrett, 2, 4, 3, 3, 2, 3,
+        {"stealth": 3, "lockpicking": 2, "lying": 2, "dodge": 2}, morale=80)
     db.set_relationship(garrett, player, "disposition", -5, "Wary of armed strangers")
     db.set_relationship(garrett, magda, "disposition", -20, "Stole from her, terrified")
     db.add_goal(garrett, "Sell the silver locket to a fence", 9)
@@ -140,8 +148,8 @@ def seed(db_path="world.db"):
     aldric = db.create_entity("npc", "Brother Aldric", "day 1",
         "Elderly priest, kind but hiding a terrible secret")
     db.set_physical(aldric, 8, 8, temple)
-    db.set_stats(aldric, 1, 5, 5,
-        {"knowledge": 3, "medicine": 2, "persuasion": 2, "empathy": 3})
+    db.set_stats(aldric, 1, 1, 5, 5, 5, 5,
+        {"knowledge": 3, "medicine": 2, "persuasion": 2, "empathy": 3}, morale=90)
     db.set_relationship(aldric, player, "disposition", 15, "Welcomes all travelers")
     db.add_goal(aldric, "Protect the mayor's secret at all costs", 10)
     db.add_goal(aldric, "Heal the sick before the festival", 6)
@@ -150,28 +158,34 @@ def seed(db_path="world.db"):
     voss = db.create_entity("npc", "Captain Voss", "day 1",
         "Stocky guard captain, by-the-book, hates disorder")
     db.set_physical(voss, 20, 20, gate)
-    db.set_stats(voss, 5, 3, 2,
-        {"fighting": 3, "intimidation": 3, "perception": 2})
+    db.set_stats(voss, 5, 4, 3, 3, 2, 3,
+        {"fighting": 3, "intimidation": 3, "perception": 2}, morale=20)
     db.set_relationship(voss, player, "disposition", 0, "Neutral")
     db.add_item(voss_sword, voss, equipped=1)
+    db.set_item_stats(voss_sword, "weapon", weapon_base=4, weapon_type="slashing", weight=3.5)
+    db.add_item(chain_shirt, voss, equipped=1)
+    db.set_item_stats(chain_shirt, "armor", armor_value=4, weight=8.0)
 
     # NEW: Bandit Chief Rork (Active, at bandit camp)
     rork = db.create_entity("npc", "Rork the Red", "day 1",
         "Scarred bandit chief, missing two fingers, cruel and cunning")
     db.set_physical(rork, 22, 22, bandit_camp)
-    db.set_stats(rork, 5, 2, 3,
-        {"fighting": 3, "intimidation": 3, "survival": 2})
+    db.set_stats(rork, 5, 4, 2, 2, 3, 2,
+        {"fighting": 3, "intimidation": 3, "survival": 2}, morale=15)
     db.set_relationship(rork, player, "disposition", -30, "Hates outsiders")
     db.add_goal(rork, "Raid Millhaven during the festival", 9)
     db.add_goal(rork, "Keep weapon shipments from mayor hidden", 8)
     db.add_item(bandit_axe, rork, equipped=1)
+    db.set_item_stats(bandit_axe, "weapon", weapon_base=4, weapon_type="bludgeoning", weight=4.0)
+    db.add_item(studded_leather, rork, equipped=1)
+    db.set_item_stats(studded_leather, "armor", armor_value=3, weight=6.0)
 
     # NEW: Farmer Edda (Active, at farm)
     edda = db.create_entity("npc", "Farmer Edda", "day 1",
         "Weathered farmwoman, lost everything in the bandit raid, furious and desperate")
     db.set_physical(edda, 10, 10, farm)
-    db.set_stats(edda, 3, 3, 2,
-        {"survival": 3, "perception": 2, "fighting": 1})
+    db.set_stats(edda, 3, 3, 3, 3, 2, 3,
+        {"survival": 3, "perception": 2, "fighting": 1}, morale=40)
     db.set_relationship(edda, player, "disposition", 5, "Desperate for help")
     db.add_goal(edda, "Get revenge on the bandits", 9)
     db.add_goal(edda, "Find shelter before winter", 7)
@@ -180,8 +194,8 @@ def seed(db_path="world.db"):
     salo = db.create_entity("npc", "Merchant Salo", "day 1",
         "Rotund traveling merchant with a booming laugh, sells anything for the right price")
     db.set_physical(salo, 14, 14, market)
-    db.set_stats(salo, 2, 4, 4,
-        {"persuasion": 3, "lying": 2, "knowledge": 2, "perception": 1})
+    db.set_stats(salo, 2, 2, 4, 4, 4, 3,
+        {"persuasion": 3, "lying": 2, "knowledge": 2, "perception": 1}, morale=70)
     db.set_relationship(salo, player, "disposition", 0, "A customer is a customer")
 
     # === WORLD FACTS ===
@@ -242,11 +256,12 @@ def seed(db_path="world.db"):
 
     n_locs = 15
     n_npcs = 7
+    n_items = 9  # 6 original + 3 armor
     n_facts = 10
     print(f"World seeded: {db_path}")
     print(f"  Locations: {n_locs}")
     print(f"  NPCs: {n_npcs} (5 active, 2 reactive)")
-    print(f"  Items: 6")
+    print(f"  Items: 9")
     print(f"  World facts: {n_facts} (4 public, 6 secret)")
     print(f"  Player starts at: The Rusty Flagon")
 
@@ -265,7 +280,9 @@ def seed(db_path="world.db"):
                  "rork": rork, "edda": edda, "salo": salo},
         "items": {"sword": sword, "pot1": pot1, "lockpick": lockpick,
                   "silver_locket": silver_locket,
-                  "voss_sword": voss_sword, "bandit_axe": bandit_axe},
+                  "voss_sword": voss_sword, "bandit_axe": bandit_axe,
+                  "leather_vest": leather_vest, "chain_shirt": chain_shirt,
+                  "studded_leather": studded_leather},
     }
 
 if __name__ == "__main__":

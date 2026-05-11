@@ -168,7 +168,7 @@ def run_tests():
             (player, 25, 25, loc_tavern, "[]", 1))
         p_skills = json.dumps({"fighting": 2, "persuasion": 1, "stealth": 2, "perception": 1, "survival": 1})
         db.execute("INSERT INTO comp_stats VALUES (?,?,?,?,?)",
-            (player, 4, 3, 5, p_skills))
+            (player, 4, 4, 3, 3, 5, 4, p_skills))
         print("PASS: Player created")
         passed += 1
     except Exception as e:

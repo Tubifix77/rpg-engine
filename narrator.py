@@ -101,7 +101,7 @@ Respond with ONLY an [ACTIONS] block. No narrative."""
         messages.append({"role": "user", "content": prompt})
         return self._call_blocking(messages)
 
-    def narrate_outcome(self, scene_context, player_action, mech_results):
+    def narrate_outcome(self, scene_context, player_action, mech_results, stream=True):
         """Pass 2: Narrate grounded in mechanical results. Streaming."""
         prompt = f"""{scene_context}
 
@@ -118,7 +118,10 @@ Narrate what happened based on the mechanical results above."""
         for h in self.history[-4:]:
             messages.append(h)
         messages.append({"role": "user", "content": prompt})
-        response = self._call_stream(messages)
+        if stream:
+            response = self._call_stream(messages)
+        else:
+            response = self._call_blocking(messages)
         self.history.append({"role": "user", "content": player_action})
         self.history.append({"role": "assistant", "content": response})
         return response

@@ -1,43 +1,59 @@
 """plausibility.py - Common sense filter between actions and mechanics.
-Asks LLM: is this physically/socially reasonable?
-Returns AUTO, CHECK (with skill), or IMPOSSIBLE for each action."""
+Judges whether the player can PHYSICALLY ATTEMPT an action.
+Returns AUTO, CHECK (with skill), or IMPOSSIBLE for each action.
+
+Phase 0 rewrite:
+- Whitelist routes known action types without an LLM call
+- All combat → CHECK unconditionally (combat system handles outcome)
+- LLM prompt narrowed to physics/world-state only
+- LLM never judges NPC reactions or social consequences
+"""
 import requests
 import json
 
-PLAUSIBILITY_PROMPT = """You are the common sense filter for a text RPG.
-Given a scene and proposed actions, judge each action's plausibility.
+PLAUSIBILITY_PROMPT = """You are the PHYSICS FILTER for a text RPG.
+You judge ONLY whether the player can physically attempt each action.
+
+RULES:
+- You judge the PLAYER'S ACTION ONLY.
+- You do NOT judge NPC reactions, social consequences, or whether the action is smart.
+- You do NOT imagine what NPCs would do in response.
+- You do NOT consider whether NPCs would "allow" or "prevent" the action.
+- If the player has the body, the location, and the means, the action is possible.
+
+RATINGS:
+- AUTO: Physically trivial, needs no check. Walking, talking, picking up an object, looking around, drawing a weapon, opening an unlocked door.
+- CHECK: Physically possible but needs skill or luck. Specify which skill. Climbing a wall, picking a lock, sneaking past someone, persuading someone, lifting something very heavy, leaping a gap.
+- IMPOSSIBLE: Violates physics or world state. Flying without wings, interacting with someone not present, using an item the player doesn't have, walking through walls, moving to an unconnected location.
+
+IMPORTANT:
+- Attacks and combat are NEVER judged here. If you see a combat action, skip it.
+- Leaving a location is ALWAYS AUTO regardless of social situation (unpaid tabs, ongoing conversations, etc.)
+- Talking to someone present is ALWAYS AUTO. The content of speech doesn't matter.
+- You are a physics referee, not a social referee.
 
 For EACH action, respond with exactly one line:
 ACTION_NUMBER: RATING | SKILL | REASON
 
-RATING is one of:
-- AUTO: Trivially possible, no check needed (walking, talking, picking up a mug)
-- CHECK: Possible but requires a skill check. Specify which skill.
-- IMPOSSIBLE: Cannot physically happen. Explain briefly why.
-
-Examples:
-1: AUTO | none | Walking to a nearby location
-2: CHECK | fighting | Dragging an unwilling armed guard
-3: IMPOSSIBLE | none | Carrying a horse on your back
-4: CHECK | persuasion | Convincing a hostile NPC to follow you
-5: AUTO | none | Drawing your sword
-6: IMPOSSIBLE | none | Lifting five chandeliers at once
-7: CHECK | stealth | Sneaking past a guard unnoticed
-
-Be strict about physical reality. One person cannot:
-- Carry more than one unconscious body
-- Lift anything heavier than themselves
-- Be in two places at once
-- Force multiple unwilling people simultaneously
-- Perform superhuman feats
-
-Be lenient about social actions. People CAN:
-- Try to persuade (even if likely to fail)
-- Bluff or lie (with a check)
-- Intimidate (with a check)
-- Attempt risky physical actions (climbing, jumping) with a check
-
 Respond ONLY with numbered lines. No other text."""
+
+# ── Whitelist: these action types skip the LLM entirely ──────────
+
+_WHITELIST = {
+    # type → (rating, skill, reason)
+    "combat":             ("AUTO",  "none",     "combat resolved by combat system"),
+    "movement":           ("AUTO",  "none",     "movement to connected location"),
+    "dialogue":           ("AUTO",  "none",     "talking to present NPC"),
+    "disposition_change": ("AUTO",  "none",     "social reaction"),
+    "look":               ("AUTO",  "none",     "observing surroundings"),
+    "examine":            ("AUTO",  "none",     "examining something present"),
+    "equip":              ("AUTO",  "none",     "equipping owned item"),
+    "unequip":            ("AUTO",  "none",     "unequipping item"),
+    "pickup":             ("AUTO",  "none",     "picking up accessible item"),
+    "drop":               ("AUTO",  "none",     "dropping held item"),
+    "use_item":           ("AUTO",  "none",     "using an item"),
+}
+
 
 class PlausibilityEngine:
     def __init__(self, model="gemma3:12b", base_url="http://localhost:11434"):
@@ -49,21 +65,55 @@ class PlausibilityEngine:
         Returns list of (action, rating, skill, reason) tuples."""
         if not actions:
             return []
-        # Format actions for the prompt
-        action_lines = []
+
+        whitelisted = []
+        need_llm = []
+
         for i, a in enumerate(actions):
+            atype = a.get("type", "").lower().strip()
+            if atype in _WHITELIST:
+                rating, skill, reason = _WHITELIST[atype]
+                whitelisted.append((i, a, rating, skill, reason))
+            else:
+                need_llm.append((i, a))
+
+        # If everything was whitelisted, skip LLM entirely
+        if not need_llm:
+            return [(a, r, s, rsn) for (_, a, r, s, rsn) in whitelisted]
+
+        # Call LLM only for unknown/ambiguous action types
+        llm_results = self._llm_check(scene_context, player_input, need_llm)
+
+        # Merge whitelisted + LLM results in original order
+        all_results = {}
+        for (idx, a, r, s, rsn) in whitelisted:
+            all_results[idx] = (a, r, s, rsn)
+        for (idx, result) in llm_results:
+            all_results[idx] = result
+
+        return [all_results[i] for i in sorted(all_results.keys())]
+
+    def _llm_check(self, scene_context, player_input, indexed_actions):
+        """Call LLM for actions that weren't whitelisted.
+        indexed_actions: list of (original_index, action_dict)
+        Returns list of (original_index, (action, rating, skill, reason))"""
+        # Renumber for the LLM prompt (1-based)
+        action_lines = []
+        for llm_num, (orig_idx, a) in enumerate(indexed_actions, 1):
             parts = [f"{k}: {v}" for k, v in a.items()]
-            action_lines.append(f"  {i+1}. {', '.join(parts)}")
+            action_lines.append(f"  {llm_num}. {', '.join(parts)}")
         actions_text = "\n".join(action_lines)
+
         prompt = f"""{scene_context}
 
 === PLAYER SAID ===
 {player_input}
 
-=== PROPOSED ACTIONS ===
+=== PROPOSED ACTIONS (judge these) ===
 {actions_text}
 
-Judge each action. One line per action."""
+Judge each action's PHYSICAL POSSIBILITY only. One line per action."""
+
         messages = [
             {"role": "system", "content": PLAUSIBILITY_PROMPT},
             {"role": "user", "content": prompt},
@@ -74,27 +124,29 @@ Judge each action. One line per action."""
                       "stream": False}, timeout=None)
             r.raise_for_status()
             raw = r.json()["message"]["content"]
-            return self._parse_response(raw, actions)
+            parsed = self._parse_response(raw, indexed_actions)
+            return parsed
         except Exception as e:
-            # On error, default to AUTO for all (fail open)
-            return [(a, "AUTO", "none", f"plausibility error: {e}") for a in actions]
+            # Fail open: default to AUTO
+            return [(idx, (a, "AUTO", "none", f"plausibility error: {e}"))
+                    for idx, a in indexed_actions]
 
-    def _parse_response(self, raw, actions):
-        """Parse LLM response into structured results."""
+    def _parse_response(self, raw, indexed_actions):
+        """Parse LLM response into structured results.
+        Returns list of (original_index, (action, rating, skill, reason))"""
         results = []
         lines = raw.strip().split("\n")
-        for i, action in enumerate(actions):
+
+        for llm_num, (orig_idx, action) in enumerate(indexed_actions, 1):
             rating = "AUTO"
             skill = "none"
             reason = ""
-            # Try to find matching line
             for line in lines:
                 line = line.strip()
-                if line.startswith(f"{i+1}:") or line.startswith(f"{i+1}."):
+                if line.startswith(f"{llm_num}:") or line.startswith(f"{llm_num}."):
                     parts = line.split("|")
                     if len(parts) >= 2:
-                        # Extract rating
-                        rtext = parts[0].split(":",1)[-1].strip().upper()
+                        rtext = parts[0].split(":", 1)[-1].strip().upper()
                         if "IMPOSSIBLE" in rtext:
                             rating = "IMPOSSIBLE"
                         elif "CHECK" in rtext:
@@ -104,7 +156,7 @@ Judge each action. One line per action."""
                         skill = parts[1].strip().lower() if len(parts) > 1 else "none"
                         reason = parts[2].strip() if len(parts) > 2 else ""
                     break
-            results.append((action, rating, skill, reason))
+            results.append((orig_idx, (action, rating, skill, reason)))
         return results
 
     def format_debug(self, results):

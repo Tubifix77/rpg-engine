@@ -73,7 +73,7 @@ class SceneAssembler:
         conds = json.loads(p_phys["conditions"] or "[]")
         if conds:
             parts.append(f"Conditions: {', '.join(conds)}")
-        parts.append(f"Corporeal: {p_stats['corporeal']} | Ethereal: {p_stats['ethereal']} | Celestial: {p_stats['celestial']}")
+        parts.append(f"STR:{p_stats['strength']} AGI:{p_stats['agility']} | INT:{p_stats['intelligence']} PRE:{p_stats['precision']} | WIL:{p_stats['will']} PER:{p_stats['perception']}")
         sk = ", ".join(f"{k}:{v}" for k, v in p_stats["skills"].items())
         parts.append(f"Skills: {sk}")
         if p_inv:
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     # Player
     p = db.create_entity("player", "Kael", "day 1", "A wandering sellsword seeking fortune")
     db.set_physical(p, 22, 25, tavern)
-    db.set_stats(p, 4, 3, 5, {"fighting": 2, "persuasion": 2, "stealth": 1, "perception": 1, "survival": 1})
+    db.set_stats(p, 4, 4, 3, 3, 5, 4, {"fighting": 2, "persuasion": 2, "stealth": 1, "perception": 1, "survival": 1})
     sword = db.create_entity("item", "Iron Sword", "day 1")
     pot = db.create_entity("item", "Healing Potion", "day 1")
     db.add_item(sword, p, equipped=1)
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     # NPC in tavern
     barkeep = db.create_entity("npc", "Old Magda", "day 1", "Grizzled barkeeper, missing her left eye")
     db.set_physical(barkeep, 12, 12, tavern)
-    db.set_stats(barkeep, 2, 4, 3, {"perception": 3, "intimidation": 2})
+    db.set_stats(barkeep, 2, 2, 4, 4, 3, 3, {"perception": 3, "intimidation": 2})
     db.set_relationship(barkeep, p, "disposition", 10, "Likes paying customers")
     db.add_goal(barkeep, "Find out who stole the tavern's silver", 6)
     # A secret the barkeep knows

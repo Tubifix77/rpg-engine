@@ -27,9 +27,13 @@ CREATE TABLE IF NOT EXISTS comp_physical (
 
 CREATE TABLE IF NOT EXISTS comp_stats (
     entity_id   TEXT PRIMARY KEY REFERENCES entities(id),
-    corporeal   INTEGER NOT NULL DEFAULT 3,
-    ethereal    INTEGER NOT NULL DEFAULT 3,
-    celestial   INTEGER NOT NULL DEFAULT 3,
+    strength    INTEGER NOT NULL DEFAULT 3,
+    agility     INTEGER NOT NULL DEFAULT 3,
+    intelligence INTEGER NOT NULL DEFAULT 3,
+    precision   INTEGER NOT NULL DEFAULT 3,
+    will        INTEGER NOT NULL DEFAULT 3,
+    perception  INTEGER NOT NULL DEFAULT 3,
+    morale_threshold INTEGER NOT NULL DEFAULT 30,
     skills      TEXT NOT NULL DEFAULT '{}'
 );
 
@@ -39,6 +43,16 @@ CREATE TABLE IF NOT EXISTS comp_inventory (
     equipped    INTEGER NOT NULL DEFAULT 0,
     quantity    INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY (item_id, holder_id)
+);
+
+CREATE TABLE IF NOT EXISTS comp_item_stats (
+    entity_id    TEXT PRIMARY KEY REFERENCES entities(id),
+    item_type    TEXT NOT NULL DEFAULT 'misc',
+    weapon_base  INTEGER,
+    weapon_type  TEXT,
+    armor_value  INTEGER,
+    weight       REAL,
+    volume       REAL
 );
 
 CREATE TABLE IF NOT EXISTS comp_location (
@@ -109,7 +123,7 @@ def uid():
 class WorldDB:
     def __init__(self, path="world.db"):
         self.path = path
-        self.db = sqlite3.connect(path)
+        self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
@@ -172,11 +186,11 @@ class WorldDB:
         self.db.commit()
 
     # --- Stats ---
-    def set_stats(self, eid, corp, eth, cel, skills=None):
+    def set_stats(self, eid, strength, agility, intelligence, precision, will, perception, skills=None, morale=30):
         sk = json.dumps(skills or {})
         self.db.execute(
-            "INSERT OR REPLACE INTO comp_stats VALUES (?,?,?,?,?)",
-            (eid, corp, eth, cel, sk))
+            "INSERT OR REPLACE INTO comp_stats VALUES (?,?,?,?,?,?,?,?,?)",
+            (eid, strength, agility, intelligence, precision, will, perception, morale, sk))
         self.db.commit()
 
     def get_stats(self, eid):
@@ -215,6 +229,37 @@ class WorldDB:
         return self.db.execute(
             "SELECT 1 FROM comp_inventory WHERE item_id=? AND holder_id=?",
             (item_id, holder_id)).fetchone() is not None
+
+    # --- Item Stats ---
+    def set_item_stats(self, eid, item_type="misc", weapon_base=None, weapon_type=None, armor_value=None, weight=None, volume=None):
+        self.db.execute(
+            "INSERT OR REPLACE INTO comp_item_stats VALUES (?,?,?,?,?,?,?)",
+            (eid, item_type, weapon_base, weapon_type, armor_value, weight, volume))
+        self.db.commit()
+
+    def get_item_stats(self, eid):
+        row = self.db.execute(
+            "SELECT * FROM comp_item_stats WHERE entity_id=?", (eid,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_equipped_weapon(self, holder_id):
+        row = self.db.execute("""
+            SELECT s.* FROM comp_item_stats s
+            JOIN comp_inventory i ON i.item_id = s.entity_id
+            WHERE i.holder_id=? AND i.equipped=1
+            AND s.item_type='weapon'
+        """, (holder_id,)).fetchone()
+        return dict(row) if row else None
+
+    def get_equipped_armor(self, holder_id):
+        row = self.db.execute("""
+            SELECT s.* FROM comp_item_stats s
+            JOIN comp_inventory i ON i.item_id = s.entity_id
+            WHERE i.holder_id=? AND i.equipped=1
+            AND s.item_type='armor'
+        """, (holder_id,)).fetchone()
+        return dict(row) if row else None
 
     # --- Location ---
     def set_location(self, eid, parent, desc, state, conns):
