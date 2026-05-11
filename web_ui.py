@@ -85,6 +85,62 @@ def api_state():
         "clock": dict(clock) if clock else {},
         "history": G["hist"][-20:]})
 
+def _resolve_destination(db, pid, raw_dest):
+    """Fuzzy match a destination string to a connected location entity."""
+    if not raw_dest:
+        return None
+    dn = raw_dest.strip().lower()
+    if "->" in dn:
+        dn = dn.split("->")[-1].strip()
+    # Remove common filler words
+    for w in ["the ", "to ", "towards ", "toward ", "into ", "go "]:
+        if dn.startswith(w):
+            dn = dn[len(w):]
+    phys = db.get_physical(pid)
+    if not phys:
+        return None
+    loc = db.get_location(phys["location_id"])
+    if not loc:
+        return None
+    conns = loc["connections"]  # {"outside": eid, "cellar": eid, ...}
+
+    # Build lookup: key -> eid, location_name -> eid
+    key_map = {}  # lowercase key/name -> entity_id
+    for k, eid in conns.items():
+        key_map[k.lower()] = eid
+        e = db.get_entity(eid)
+        if e:
+            key_map[e["name"].lower()] = eid
+
+    # 1. Exact match on key or location name
+    if dn in key_map:
+        return db.get_entity(key_map[dn])
+
+    # 2. Partial match: destination contains key or key contains destination
+    for k, eid in key_map.items():
+        if dn in k or k in dn:
+            return db.get_entity(eid)
+
+    # 3. Synonym matching for common movement words
+    EXIT_WORDS = {"outside", "out", "exit", "leave", "door", "street", "away"}
+    if dn in EXIT_WORDS or any(w in dn for w in EXIT_WORDS):
+        for k in ["outside", "out", "exit", "door", "street"]:
+            if k in key_map:
+                return db.get_entity(key_map[k])
+        # If no explicit exit key, try first non-interior connection
+        for k, eid in conns.items():
+            if k.lower() not in {"cellar", "upstairs", "basement", "back_room"}:
+                return db.get_entity(eid)
+
+    # 4. Try global entity search (handles "Rusty Flagon", "North Gate" etc)
+    found = db.find_entity(raw_dest)
+    if found and found["id"] in conns.values():
+        return found
+
+    # 5. Nothing matched
+    return None
+
+
 def _exec_action(db, pid, rules, a):
     t = a.get("type","")
     if t == "combat":
@@ -93,16 +149,7 @@ def _exec_action(db, pid, rules, a):
         if d: return rules.resolve_combat_round(pid, d["id"])
     elif t == "movement":
         dn = a.get("destination","")
-        if "->" in dn: dn = dn.split("->")[-1].strip()
-        dest = db.find_entity(dn)
-        if not dest:
-            phys = db.get_physical(pid)
-            if phys:
-                loc = db.get_location(phys["location_id"])
-                if loc:
-                    for k, eid in loc["connections"].items():
-                        if k.lower() == dn.lower():
-                            dest = db.get_entity(eid); break
+        dest = _resolve_destination(db, pid, dn)
         if dest: return rules.execute_move(pid, dest["id"])
     elif t == "disposition_change":
         nn = a.get("npc","")
