@@ -1,10 +1,14 @@
 """rules_engine.py - Deterministic game mechanics. No LLM."""
 import json
 from dice import skill_check, contested_check, initiative_roll, damage_roll
+from survival import SurvivalSystem
+from encumbrance import EncumbranceSystem
 
 class RulesEngine:
     def __init__(self, db):
         self.db = db
+        self.surv = SurvivalSystem(db)
+        self.enc = EncumbranceSystem(db)
 
     def resolve_skill_check(self, entity_id, skill_name, modifier=0):
         """Roll a skill check for an entity. Returns result dict."""
@@ -15,13 +19,30 @@ class RulesEngine:
         skill_rank = stats["skills"].get(skill_name, 0)
         stat_name = self._skill_stat(skill_name)
         stat_val = stats[stat_name]
-        result = skill_check(stat_val, skill_rank, modifier)
+        # Apply condition penalties
+        pens = self._get_penalties(entity_id)
+        penalty = pens.get(stat_name, 0)
+        result = skill_check(stat_val + penalty, skill_rank, modifier)
         result["entity_id"] = entity_id
         result["skill"] = skill_name
         result["stat_name"] = stat_name
         result["stat"] = stat_val
         result["skill_rank"] = skill_rank
         return result
+
+    def _get_penalties(self, entity_id):
+        """Combine all condition penalties (survival + encumbrance)."""
+        pens = {}
+        # Survival
+        _, s_pens = self.surv.get_conditions(entity_id)
+        for k, v in s_pens.items():
+            pens[k] = pens.get(k, 0) + v
+        # Encumbrance
+        cond, _, _ = self.enc.check_encumbrance(entity_id)
+        e_pens = self.enc.get_penalties(cond)
+        for k, v in e_pens.items():
+            pens[k] = pens.get(k, 0) + v
+        return pens
 
     def _skill_stat(self, skill_name):
         """Map skills to their governing stat."""

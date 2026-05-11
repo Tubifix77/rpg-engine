@@ -7,6 +7,9 @@ from rules_engine import RulesEngine
 from plausibility import PlausibilityEngine
 from scene_assembler import SceneAssembler
 from seed_world import seed
+from encumbrance import EncumbranceSystem
+from survival import SurvivalSystem
+from economy import EconomySystem
 from database import WorldDB
 import json, os
 
@@ -23,6 +26,9 @@ def init_game(model="gemma3:12b"):
     G["val"] = Validator(G["db"])
     G["rul"] = RulesEngine(G["db"])
     G["pla"] = PlausibilityEngine(model=model)
+    G["enc"] = EncumbranceSystem(G["db"])
+    G["surv"] = SurvivalSystem(G["db"])
+    G["econ"] = EconomySystem(G["db"])
     G["hist"] = []
     G["last_mech"] = ""
     G["nar"].warmup()
@@ -68,7 +74,10 @@ def api_state():
             "wil": stats["will"], "per": stats["perception"], "skills": stats["skills"],
             "conds": json.loads(phys["conditions"] or "[]"),
             "inv": inv, "notes": player.get("notes",""),
-            "knowledge": [k["content"] for k in knowledge]},
+            "knowledge": [k["content"] for k in knowledge],
+            "silver": db.get_currency(pid),
+            "encumbrance": G["enc"].check_encumbrance(pid),
+            "survival": db.get_survival(pid)},
         "location": {"name": loc["name"], "desc": loc_d["description"],
             "state": loc_d.get("current_state",""),
             "exits": list(loc_d["connections"].keys())},

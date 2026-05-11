@@ -208,6 +208,24 @@ function renderCharacter(p) {
     h += `<div class="stat-row"><span class="stat-label">Corporeal</span><span class="stat-val">STR:${p.str} AGI:${p.agi}</span></div>`;
     h += `<div class="stat-row"><span class="stat-label">Ethereal</span><span class="stat-val">INT:${p.int} PRE:${p.pre}</span></div>`;
     h += `<div class="stat-row"><span class="stat-label">Celestial</span><span class="stat-val">WIL:${p.wil} PER:${p.per}</span></div>`;
+    h += `<div class="stat-row"><span class="stat-label">Silver</span><span class="stat-val">${p.silver || 0}</span></div>`;
+    if (p.encumbrance) {
+        const [cond, load, cap] = p.encumbrance;
+        const pct = Math.round(load/cap*100);
+        const color = pct >= 100 ? '#ff4444' : pct >= 75 ? '#ff8844' : pct >= 50 ? '#ffaa44' : '#88cc88';
+        h += `<div class="stat-row"><span class="stat-label">Load</span><span class="stat-val" style="color:${color}">${load.toFixed(1)}/${cap}kg</span></div>`;
+    }
+    if (p.survival) {
+        const sv = p.survival;
+        const badges = [];
+        if (sv.hunger >= 75) badges.push('<span style="color:#ff4444">starving</span>');
+        else if (sv.hunger >= 50) badges.push('<span style="color:#ff8844">hungry</span>');
+        if (sv.thirst >= 75) badges.push('<span style="color:#ff4444">dehydrated</span>');
+        else if (sv.thirst >= 50) badges.push('<span style="color:#ff8844">thirsty</span>');
+        if (sv.fatigue >= 75) badges.push('<span style="color:#ff4444">exhausted</span>');
+        else if (sv.fatigue >= 50) badges.push('<span style="color:#ff8844">tired</span>');
+        if (badges.length) h += `<div class="stat-row"><span class="stat-label">State</span><span class="stat-val">${badges.join(' ')}</span></div>`;
+    }
     for (const [sk, lv] of Object.entries(p.skills || {})) {
         h += `<div class="stat-row"><span class="stat-label">${esc(sk)}</span><span class="stat-val">${lv}</span></div>`;
     }

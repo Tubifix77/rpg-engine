@@ -1,9 +1,15 @@
 """scene_assembler.py - Builds LLM context from world state."""
 import json
+from encumbrance import EncumbranceSystem
+from survival import SurvivalSystem
+from economy import EconomySystem
 
 class SceneAssembler:
     def __init__(self, db):
         self.db = db
+        self.enc = EncumbranceSystem(db)
+        self.surv = SurvivalSystem(db)
+        self.econ = EconomySystem(db)
 
     def _world_summary(self):
         """List all locations and living NPCs for narrator context."""
@@ -79,6 +85,17 @@ class SceneAssembler:
         if p_inv:
             inv = ", ".join(f"{i['name']}(x{i['quantity']}{'*' if i['equipped'] else ''})" for i in p_inv)
             parts.append(f"Inventory: {inv}")
+        # Economy
+        silver = self.econ.format_for_scene(player_id)
+        parts.append(f"Currency: {silver}")
+        # Encumbrance
+        enc_txt = self.enc.format_for_scene(player_id)
+        if enc_txt:
+            parts.append(f"Encumbrance: {enc_txt}")
+        # Survival conditions
+        surv_txt = self.surv.format_for_scene(player_id)
+        if surv_txt:
+            parts.append(f"Physical state: {surv_txt}")
         if player.get("notes"):
             parts.append(f"Background: {player['notes']}")
         if p_knowledge:
