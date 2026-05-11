@@ -103,22 +103,25 @@ def seed(db_path="world.db"):
     db.set_stats(player, 4, 4, 3, 3, 5, 4,
         {"fighting": 2, "persuasion": 2, "stealth": 1,
          "perception": 1, "survival": 1}, morale=10)
+    db.set_currency(player, 25)    # starting silver
+    db.set_survival(player, 0, 0, 0)  # start fresh
+
 
     # === ITEMS ===
     sword = db.create_entity("item", "Iron Sword", "day 1", "Worn but sharp")
     db.add_item(sword, player, equipped=1)
-    db.set_item_stats(sword, "weapon", weapon_base=3, weapon_type="slashing", weight=3.0)
+    db.set_item_stats(sword, "weapon", weapon_base=3, weapon_type="slashing", weight=3.0, value=15)
     pot1 = db.create_entity("item", "Healing Potion", "day 1", "Restores 10 HP")
     db.add_item(pot1, player, qty=2)
-    db.set_item_stats(pot1, "consumable", weight=0.5)
+    db.set_item_stats(pot1, "consumable", weight=0.5, value=5)
     lockpick = db.create_entity("item", "Lockpick Set", "day 1", "Thin steel picks")
     db.add_item(lockpick, player)
-    db.set_item_stats(lockpick, "misc", weight=0.3)
+    db.set_item_stats(lockpick, "misc", weight=0.3, value=3)
     leather_vest = db.create_entity("item", "Leather Vest", "day 1", "Worn but serviceable protection")
     chain_shirt = db.create_entity("item", "Chain Shirt", "day 1", "Guard-issue chain links over padded cloth")
     studded_leather = db.create_entity("item", "Studded Leather", "day 1", "Bandit armor, rough but effective")
     db.add_item(leather_vest, player, equipped=1)
-    db.set_item_stats(leather_vest, "armor", armor_value=2, weight=4.0)
+    db.set_item_stats(leather_vest, "armor", armor_value=2, weight=4.0, value=10)
     silver_locket = db.create_entity("item", "Silver Locket", "day 1", "Contains a faded portrait, stolen from the tavern")
     voss_sword = db.create_entity("item", "Captain's Sword", "day 1", "Well-crafted steel with a griffin etching")
     bandit_axe = db.create_entity("item", "Bandit's Axe", "day 1", "Crude but heavy, stained with rust")
@@ -130,6 +133,7 @@ def seed(db_path="world.db"):
     db.set_physical(magda, 12, 12, tavern)
     db.set_stats(magda, 2, 2, 4, 4, 3, 3, {"perception": 3, "intimidation": 2, "knowledge": 2}, morale=50)
     db.set_relationship(magda, player, "disposition", 10, "Likes paying customers")
+    db.set_currency(magda, 100)
     db.add_goal(magda, "Find who stole her silver locket", 8)
     db.add_goal(magda, "Keep tavern running during festival", 5)
 
@@ -162,9 +166,9 @@ def seed(db_path="world.db"):
         {"fighting": 3, "intimidation": 3, "perception": 2}, morale=20)
     db.set_relationship(voss, player, "disposition", 0, "Neutral")
     db.add_item(voss_sword, voss, equipped=1)
-    db.set_item_stats(voss_sword, "weapon", weapon_base=4, weapon_type="slashing", weight=3.5)
+    db.set_item_stats(voss_sword, "weapon", weapon_base=4, weapon_type="slashing", weight=3.5, value=30)
     db.add_item(chain_shirt, voss, equipped=1)
-    db.set_item_stats(chain_shirt, "armor", armor_value=4, weight=8.0)
+    db.set_item_stats(chain_shirt, "armor", armor_value=4, weight=8.0, value=40)
 
     # NEW: Bandit Chief Rork (Active, at bandit camp)
     rork = db.create_entity("npc", "Rork the Red", "day 1",
@@ -176,9 +180,9 @@ def seed(db_path="world.db"):
     db.add_goal(rork, "Raid Millhaven during the festival", 9)
     db.add_goal(rork, "Keep weapon shipments from mayor hidden", 8)
     db.add_item(bandit_axe, rork, equipped=1)
-    db.set_item_stats(bandit_axe, "weapon", weapon_base=4, weapon_type="bludgeoning", weight=4.0)
+    db.set_item_stats(bandit_axe, "weapon", weapon_base=4, weapon_type="bludgeoning", weight=4.0, value=12)
     db.add_item(studded_leather, rork, equipped=1)
-    db.set_item_stats(studded_leather, "armor", armor_value=3, weight=6.0)
+    db.set_item_stats(studded_leather, "armor", armor_value=3, weight=6.0, value=15)
 
     # NEW: Farmer Edda (Active, at farm)
     edda = db.create_entity("npc", "Farmer Edda", "day 1",
@@ -197,6 +201,7 @@ def seed(db_path="world.db"):
     db.set_stats(salo, 2, 2, 4, 4, 4, 3,
         {"persuasion": 3, "lying": 2, "knowledge": 2, "perception": 1}, morale=70)
     db.set_relationship(salo, player, "disposition", 0, "A customer is a customer")
+    db.set_currency(salo, 200)
 
     # === WORLD FACTS ===
     # Public facts

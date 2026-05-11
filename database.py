@@ -52,7 +52,8 @@ CREATE TABLE IF NOT EXISTS comp_item_stats (
     weapon_type  TEXT,
     armor_value  INTEGER,
     weight       REAL,
-    volume       REAL
+    volume       REAL,
+    value        INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS comp_location (
@@ -158,6 +159,18 @@ CREATE TABLE IF NOT EXISTS comp_roles (
     role_level      INTEGER NOT NULL DEFAULT 1,
     role_description TEXT,
     PRIMARY KEY (entity_id, role_name)
+);
+
+CREATE TABLE IF NOT EXISTS comp_economy (
+    entity_id   TEXT PRIMARY KEY REFERENCES entities(id),
+    currency    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS comp_survival (
+    entity_id   TEXT PRIMARY KEY REFERENCES entities(id),
+    hunger      INTEGER NOT NULL DEFAULT 0,
+    thirst      INTEGER NOT NULL DEFAULT 0,
+    fatigue     INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS disturbance_log (
@@ -294,10 +307,10 @@ class WorldDB:
             (item_id, holder_id)).fetchone() is not None
 
     # --- Item Stats ---
-    def set_item_stats(self, eid, item_type="misc", weapon_base=None, weapon_type=None, armor_value=None, weight=None, volume=None):
+    def set_item_stats(self, eid, item_type="misc", weapon_base=None, weapon_type=None, armor_value=None, weight=None, volume=None, value=None):
         self.db.execute(
-            "INSERT OR REPLACE INTO comp_item_stats VALUES (?,?,?,?,?,?,?)",
-            (eid, item_type, weapon_base, weapon_type, armor_value, weight, volume))
+            "INSERT OR REPLACE INTO comp_item_stats VALUES (?,?,?,?,?,?,?,?)",
+            (eid, item_type, weapon_base, weapon_type, armor_value, weight, volume, value))
         self.db.commit()
 
     def get_item_stats(self, eid):
@@ -324,7 +337,47 @@ class WorldDB:
         """, (holder_id,)).fetchone()
         return dict(row) if row else None
 
-    # --- Supernatural ---
+    # --- Economy ---
+    def set_currency(self, eid, amount):
+        self.db.execute(
+            "INSERT OR REPLACE INTO comp_economy VALUES (?,?)",
+            (eid, amount))
+        self.db.commit()
+
+    def get_currency(self, eid):
+        row = self.db.execute(
+            "SELECT currency FROM comp_economy WHERE entity_id=?", (eid,)
+        ).fetchone()
+        return row["currency"] if row else 0
+
+    def update_currency(self, eid, delta):
+        cur = self.get_currency(eid)
+        new = max(0, cur + delta)
+        self.set_currency(eid, new)
+        return new
+
+    # --- Survival ---
+    def set_survival(self, eid, hunger=0, thirst=0, fatigue=0):
+        self.db.execute(
+            "INSERT OR REPLACE INTO comp_survival VALUES (?,?,?,?)",
+            (eid, hunger, thirst, fatigue))
+        self.db.commit()
+
+    def get_survival(self, eid):
+        row = self.db.execute(
+            "SELECT * FROM comp_survival WHERE entity_id=?", (eid,)
+        ).fetchone()
+        return dict(row) if row else {"hunger": 0, "thirst": 0, "fatigue": 0}
+
+    def tick_survival(self, eid, hunger_delta=1, thirst_delta=1, fatigue_delta=0):
+        s = self.get_survival(eid)
+        h = min(100, s["hunger"] + hunger_delta)
+        t = min(100, s["thirst"] + thirst_delta)
+        f = min(100, s["fatigue"] + fatigue_delta)
+        self.set_survival(eid, h, t, f)
+        return {"hunger": h, "thirst": t, "fatigue": f}
+
+        # --- Supernatural ---
     def set_supernatural(self, eid, nature="human", f_corp=0, f_eth=0, f_cel=0, essence=0, essence_max=0, dissonance=0):
         self.db.execute(
             "INSERT OR REPLACE INTO comp_supernatural VALUES (?,?,?,?,?,?,?,?)",
