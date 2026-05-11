@@ -106,6 +106,69 @@ CREATE TABLE IF NOT EXISTS world_clock (
     weather     TEXT
 );
 
+CREATE TABLE IF NOT EXISTS comp_supernatural (
+    entity_id           TEXT PRIMARY KEY REFERENCES entities(id),
+    nature              TEXT NOT NULL DEFAULT 'human',
+    forces_corporeal    INTEGER NOT NULL DEFAULT 0,
+    forces_ethereal     INTEGER NOT NULL DEFAULT 0,
+    forces_celestial    INTEGER NOT NULL DEFAULT 0,
+    essence             INTEGER NOT NULL DEFAULT 0,
+    essence_max         INTEGER NOT NULL DEFAULT 0,
+    dissonance          INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS comp_songs (
+    entity_id   TEXT REFERENCES entities(id),
+    song_name   TEXT NOT NULL,
+    realm       TEXT NOT NULL,
+    level       INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (entity_id, song_name, realm)
+);
+
+CREATE TABLE IF NOT EXISTS comp_attunements (
+    entity_id       TEXT REFERENCES entities(id),
+    attunement_name TEXT NOT NULL,
+    source          TEXT,
+    description     TEXT,
+    passive         INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (entity_id, attunement_name)
+);
+
+CREATE TABLE IF NOT EXISTS comp_discord (
+    entity_id       TEXT REFERENCES entities(id),
+    discord_name    TEXT NOT NULL,
+    level           INTEGER NOT NULL DEFAULT 1,
+    realm           TEXT NOT NULL,
+    description     TEXT,
+    PRIMARY KEY (entity_id, discord_name)
+);
+
+CREATE TABLE IF NOT EXISTS comp_vessels (
+    entity_id       TEXT REFERENCES entities(id),
+    vessel_name     TEXT NOT NULL,
+    vessel_level    INTEGER NOT NULL DEFAULT 1,
+    vessel_hp       INTEGER NOT NULL DEFAULT 10,
+    vessel_hp_max   INTEGER NOT NULL DEFAULT 10,
+    PRIMARY KEY (entity_id, vessel_name)
+);
+
+CREATE TABLE IF NOT EXISTS comp_roles (
+    entity_id       TEXT REFERENCES entities(id),
+    role_name       TEXT NOT NULL,
+    role_level      INTEGER NOT NULL DEFAULT 1,
+    role_description TEXT,
+    PRIMARY KEY (entity_id, role_name)
+);
+
+CREATE TABLE IF NOT EXISTS disturbance_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_time       TEXT NOT NULL,
+    location_id     TEXT REFERENCES entities(id),
+    source_entity_id TEXT REFERENCES entities(id),
+    magnitude       INTEGER NOT NULL,
+    song_name       TEXT
+);
+
 CREATE TABLE IF NOT EXISTS event_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     game_time   TEXT NOT NULL,
@@ -261,7 +324,121 @@ class WorldDB:
         """, (holder_id,)).fetchone()
         return dict(row) if row else None
 
-    # --- Location ---
+    # --- Supernatural ---
+    def set_supernatural(self, eid, nature="human", f_corp=0, f_eth=0, f_cel=0, essence=0, essence_max=0, dissonance=0):
+        self.db.execute(
+            "INSERT OR REPLACE INTO comp_supernatural VALUES (?,?,?,?,?,?,?,?)",
+            (eid, nature, f_corp, f_eth, f_cel, essence, essence_max, dissonance))
+        self.db.commit()
+
+    def get_supernatural(self, eid):
+        row = self.db.execute(
+            "SELECT * FROM comp_supernatural WHERE entity_id=?", (eid,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def is_supernatural(self, eid):
+        s = self.get_supernatural(eid)
+        return s is not None and s.get("essence_max", 0) > 0
+
+    def update_essence(self, eid, delta):
+        self.db.execute(
+            "UPDATE comp_supernatural SET essence = MAX(0, MIN(essence_max, essence + ?)) WHERE entity_id=?",
+            (delta, eid))
+        self.db.commit()
+        return self.get_supernatural(eid)
+
+    def add_dissonance(self, eid, amount=1):
+        self.db.execute(
+            "UPDATE comp_supernatural SET dissonance = dissonance + ? WHERE entity_id=?",
+            (amount, eid))
+        self.db.commit()
+        return self.get_supernatural(eid)
+
+    # --- Songs ---
+    def add_song(self, eid, song_name, realm, level=1):
+        self.db.execute(
+            "INSERT OR REPLACE INTO comp_songs VALUES (?,?,?,?)",
+            (eid, song_name, realm, level))
+        self.db.commit()
+
+    def get_songs(self, eid):
+        rows = self.db.execute(
+            "SELECT * FROM comp_songs WHERE entity_id=?", (eid,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    # --- Attunements ---
+    def add_attunement(self, eid, name, source=None, desc=None, passive=0):
+        self.db.execute(
+            "INSERT OR REPLACE INTO comp_attunements VALUES (?,?,?,?,?)",
+            (eid, name, source, desc, passive))
+        self.db.commit()
+
+    def get_attunements(self, eid):
+        rows = self.db.execute(
+            "SELECT * FROM comp_attunements WHERE entity_id=?", (eid,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    # --- Discord ---
+    def add_discord(self, eid, name, level, realm, desc=None):
+        self.db.execute(
+            "INSERT OR REPLACE INTO comp_discord VALUES (?,?,?,?,?)",
+            (eid, name, level, realm, desc))
+        self.db.commit()
+
+    def get_discord(self, eid):
+        rows = self.db.execute(
+            "SELECT * FROM comp_discord WHERE entity_id=?", (eid,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    # --- Vessels ---
+    def add_vessel(self, eid, name, level=1, hp=10, hp_max=10):
+        self.db.execute(
+            "INSERT OR REPLACE INTO comp_vessels VALUES (?,?,?,?,?)",
+            (eid, name, level, hp, hp_max))
+        self.db.commit()
+
+    def get_vessels(self, eid):
+        rows = self.db.execute(
+            "SELECT * FROM comp_vessels WHERE entity_id=?", (eid,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    # --- Roles ---
+    def add_role(self, eid, name, level=1, desc=None):
+        self.db.execute(
+            "INSERT OR REPLACE INTO comp_roles VALUES (?,?,?,?)",
+            (eid, name, level, desc))
+        self.db.commit()
+
+    def get_roles(self, eid):
+        rows = self.db.execute(
+            "SELECT * FROM comp_roles WHERE entity_id=?", (eid,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    # --- Disturbance ---
+    def log_disturbance(self, game_time, loc_id, source_id, magnitude, song_name=None):
+        self.db.execute(
+            "INSERT INTO disturbance_log (game_time, location_id, source_entity_id, magnitude, song_name) VALUES (?,?,?,?,?)",
+            (game_time, loc_id, source_id, magnitude, song_name))
+        self.db.commit()
+
+    def get_recent_disturbances(self, loc_id=None, n=10):
+        if loc_id:
+            rows = self.db.execute(
+                "SELECT * FROM disturbance_log WHERE location_id=? ORDER BY id DESC LIMIT ?",
+                (loc_id, n)).fetchall()
+        else:
+            rows = self.db.execute(
+                "SELECT * FROM disturbance_log ORDER BY id DESC LIMIT ?",
+                (n,)).fetchall()
+        return [dict(r) for r in rows]
+
+        # --- Location ---
     def set_location(self, eid, parent, desc, state, conns):
         c = json.dumps(conns or {})
         self.db.execute(
