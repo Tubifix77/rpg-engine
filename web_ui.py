@@ -10,6 +10,9 @@ from seed_world import seed
 from encumbrance import EncumbranceSystem
 from survival import SurvivalSystem
 from economy import EconomySystem
+from songs import SongSystem
+from disturbance import DisturbanceSystem
+from dissonance import DissonanceSystem
 from database import WorldDB
 import json, os
 
@@ -29,6 +32,9 @@ def init_game(model="gemma3:12b"):
     G["enc"] = EncumbranceSystem(G["db"])
     G["surv"] = SurvivalSystem(G["db"])
     G["econ"] = EconomySystem(G["db"])
+    G["songs"] = SongSystem(G["db"])
+    G["disturb"] = DisturbanceSystem(G["db"])
+    G["diss"] = DissonanceSystem(G["db"])
     G["hist"] = []
     G["last_mech"] = ""
     G["nar"].warmup()
@@ -147,6 +153,15 @@ def _exec_action(db, pid, rules, a):
         dn = a.get("defender","") or a.get("npc","")
         d = db.find_entity(dn)
         if d: return rules.resolve_combat_round(pid, d["id"])
+    elif t == "song":
+        sn = a.get("song_name", "") or a.get("song", "")
+        rm = a.get("realm", "corporeal")
+        tid = None
+        tn = a.get("target", "") or a.get("npc", "")
+        if tn:
+            te = db.find_entity(tn)
+            if te: tid = te["id"]
+        return G["songs"].resolve_song(pid, sn, rm, tid)
     elif t == "movement":
         dn = a.get("destination","")
         dest = _resolve_destination(db, pid, dn)
@@ -214,6 +229,13 @@ def api_action():
                 ml.append(f"Counter: {dn} {r['counter_damage']}dmg back")
             if r.get("defender_flees"):
                 ml.append(f"Morale: {dn} flees!")
+        elif a.get("type") == "song" and r:
+            ml.append(G["songs"].format_result(r))
+            if r.get("disturbance", 0) > 0:
+                phys = db.get_physical(pid)
+                if phys:
+                    dets = G["disturb"].check_detection(pid, phys["location_id"], r["disturbance"])
+                    ml.append(G["disturb"].format_detections(dets))
     phys = db.get_physical(pid)
     loc = db.get_entity(phys["location_id"]) if phys else None
     ln = loc["name"] if loc else "?"

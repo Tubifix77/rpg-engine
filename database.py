@@ -115,7 +115,9 @@ CREATE TABLE IF NOT EXISTS comp_supernatural (
     forces_celestial    INTEGER NOT NULL DEFAULT 0,
     essence             INTEGER NOT NULL DEFAULT 0,
     essence_max         INTEGER NOT NULL DEFAULT 0,
-    dissonance          INTEGER NOT NULL DEFAULT 0
+    dissonance          INTEGER NOT NULL DEFAULT 0,
+    choir_or_band       TEXT,
+    superior            TEXT
 );
 
 CREATE TABLE IF NOT EXISTS comp_songs (
@@ -378,10 +380,10 @@ class WorldDB:
         return {"hunger": h, "thirst": t, "fatigue": f}
 
         # --- Supernatural ---
-    def set_supernatural(self, eid, nature="human", f_corp=0, f_eth=0, f_cel=0, essence=0, essence_max=0, dissonance=0):
+    def set_supernatural(self, eid, nature="human", f_corp=0, f_eth=0, f_cel=0, essence=0, essence_max=0, dissonance=0, choir_or_band=None, superior=None):
         self.db.execute(
-            "INSERT OR REPLACE INTO comp_supernatural VALUES (?,?,?,?,?,?,?,?)",
-            (eid, nature, f_corp, f_eth, f_cel, essence, essence_max, dissonance))
+            "INSERT OR REPLACE INTO comp_supernatural VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (eid, nature, f_corp, f_eth, f_cel, essence, essence_max, dissonance, choir_or_band, superior))
         self.db.commit()
 
     def get_supernatural(self, eid):

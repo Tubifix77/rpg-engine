@@ -52,6 +52,7 @@ _WHITELIST = {
     "pickup":             ("AUTO",  "none",     "picking up accessible item"),
     "drop":               ("AUTO",  "none",     "dropping held item"),
     "use_item":           ("AUTO",  "none",     "using an item"),
+    "song":               ("AUTO",  "none",     "song resolved by song system"),
 }
 
 
