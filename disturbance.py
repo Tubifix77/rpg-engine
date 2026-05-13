@@ -55,7 +55,7 @@ class DisturbanceSystem:
                     continue
                 per = stats.get("perception", 3)
                 # TN = Perception, difficulty increases with distance
-                mod = -depth
+                mod = magnitude - depth * 2  # high magnitude easier to detect
                 roll = skill_check(per, 0, mod)
                 if roll["success"]:
                     detections.append({

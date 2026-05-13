@@ -13,6 +13,7 @@ from economy import EconomySystem
 from songs import SongSystem
 from disturbance import DisturbanceSystem
 from dissonance import DissonanceSystem
+import sys
 from database import WorldDB
 import json, os
 
@@ -20,8 +21,13 @@ app = Flask(__name__)
 G = {}
 
 def init_game(model="gemma3:12b"):
-    w = seed("world.db")
-    G["db"] = w["db"]
+    if "--city" in sys.argv:
+        from seed_city import seed as city_seed
+        w = city_seed("city.db")
+        G["db"] = WorldDB("city.db")
+    else:
+        w = seed("world.db")
+        G["db"] = WorldDB("world.db")
     G["pid"] = w["player"]
     G["sc"] = SceneAssembler(G["db"])
     G["nar"] = Narrator(model=model)
@@ -90,6 +96,28 @@ def api_state():
         "npcs": get_npc_info(db, pid, loc_id),
         "clock": dict(clock) if clock else {},
         "history": G["hist"][-20:]})
+
+import re as _re
+
+def _detect_song(text):
+    """Pre-parse Song invocations. Returns action dict or None."""
+    low = text.lower().strip()
+    realms = {"corporeal": "corporeal", "ethereal": "ethereal", "celestial": "celestial",
+              "corp": "corporeal", "eth": "ethereal", "cel": "celestial"}
+    from songs import SONGS
+    for sn in SONGS:
+        if sn in low:
+            realm = "corporeal"
+            for rk, rv in realms.items():
+                if rk in low:
+                    realm = rv
+                    break
+            target = None
+            m = _re.search(r"(?:on|at|against)\s+(.+)", low)
+            if m:
+                target = m.group(1).strip()
+            return {"type": "song", "song_name": sn, "realm": realm, "target": target or "self"}
+    return None
 
 def _resolve_destination(db, pid, raw_dest):
     """Fuzzy match a destination string to a connected location entity."""
@@ -182,6 +210,29 @@ def api_action():
     db, pid = G["db"], G["pid"]
     act = request.json.get("action", "")
     if not act: return jsonify({"error": "empty"})
+    # Pre-parse: detect Song invocations before LLM pipeline
+    song_action = _detect_song(act)
+    if song_action:
+        r = _exec_action(db, pid, G["rul"], song_action)
+        ml = []
+        if r:
+            ml.append(G["songs"].format_result(r))
+            if r.get("disturbance", 0) > 0:
+                phys = db.get_physical(pid)
+                if phys:
+                    dets = G["disturb"].check_detection(pid, phys["location_id"], r["disturbance"])
+                    ml.append(G["disturb"].format_detections(dets))
+        phys = db.get_physical(pid)
+        loc = db.get_entity(phys["location_id"]) if phys else None
+        ln = loc["name"] if loc else "?"
+        mt = f"PLAYER IS AT: {ln}. " + "; ".join(ml) if ml else f"PLAYER IS AT: {ln}."
+        G["last_mech"] = mt
+        ctx = G["sc"].assemble(pid)
+        narrative = G["nar"].narrate_outcome(ctx, act, mt, stream=False)
+        entry = {"action": act, "narrative": narrative,
+            "mechanics": ml, "violations": [], "plausibility": [{"type": "song", "rating": "AUTO", "reason": "song system"}]}
+        G["hist"].append(entry)
+        return jsonify(entry)
     ctx = G["sc"].assemble(pid)
     # Pass 1: actions
     raw = G["nar"].resolve_actions(ctx, act)
