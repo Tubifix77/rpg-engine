@@ -1,77 +1,109 @@
 # RPG Engine
 
-A persistent RPG world simulator where a local LLM serves as game master, grounded by a deterministic rules engine and a rigorous world state database.
+An LLM-powered RPG simulator inspired by In Nomine, with a deterministic rules engine, supernatural systems, and a web UI. Play as an angel or demon in a modern city, or as a sellsword in a medieval town.
 
 **The LLM describes. The database decides.**
 
-Unlike chat-wrapper RPG tools (SillyTavern, KoboldAI), this engine uses a three-pass architecture where mechanics are resolved BEFORE narration, ensuring the story always matches the dice.
+Unlike chat-wrapper RPG tools, this engine resolves all mechanics in Python before the LLM writes a single word of narration. The story always matches the dice.
+
+## Quick Start
+
+```bash
+# Requires Python 3.7+, Flask, and Ollama with gemma3:12b
+ollama pull gemma3:12b
+pip install requests flask
+
+# Modern-day celestial campaign (In Nomine)
+python web_ui.py --city
+
+# Medieval fantasy campaign
+python web_ui.py
+```
+
+Then open `http://localhost:5000` in your browser.
+
+## Two Scenarios
+
+### Harbor City (--city) — In Nomine Celestial Campaign
+
+Play as a Malakite of War — an angel in a human vessel, investigating demonic activity in a modern city. Full supernatural systems active.
+
+- **17 locations** across 4 districts: Downtown, Waterfront, Midtown, Eastside
+- **9 NPCs**: 3 angels (surgeon, detective, ancient librarian), 2 demons (nightclub owner, information broker), 4 humans (cop, priest, bartender, nurse)
+- **Songs**: 5 supernatural abilities × 3 realms each (Healing, Thunder, Shields, Motion, Tongues) — costs Essence, generates Disturbance
+- **Disturbance**: use a Song and every celestial in the neighborhood might detect you
+- **Dissonance**: act against your angelic nature and accumulate moral corruption — enough triggers permanent Discord flaws
+- **The War**: a demon is building a Tether to Hell in a warehouse. An ancient angel watches and does nothing. A human detective is getting too close to the truth. Your move.
+
+### Millhaven — Medieval Fantasy Campaign
+
+A wandering sellsword in a small farming town with intertwined plot threads.
+
+- **15 locations**: tavern, market, temple, gates, forest, bandit camp, and more
+- **7 NPCs** with goals, secrets, and dispositions
+- **10 world facts** (4 public, 6 secret): missing mayor, weapon smuggling, poisoned well, planned bandit raid
 
 ## How It Works
 
 ```
 Player Input
-  -> Pass 1: LLM determines mechanical actions (fast, no prose)
-  -> Validator: checks entity existence, location, intent
-  -> Plausibility Engine: LLM judges AUTO / CHECK (skill roll) / IMPOSSIBLE
-  -> Rules Engine: dice rolls, damage, movement
-  -> Pass 2: LLM narrates grounded in actual results (streaming)
+  → Pass 1: LLM determines mechanical actions (structured, no prose)
+  → Validator: checks entity existence, location, dead NPCs
+  → Plausibility: LLM judges AUTO / CHECK / IMPOSSIBLE
+  → Rules Engine: d666 dice, damage, armor, movement
+  → Pass 2: LLM narrates grounded in mechanical results
 Player sees narrative + mechanical truth
 ```
 
 ## Features
 
-- **Two-pass narration**: Mechanics resolve before prose. No more "you killed him" when the dice say he dodged.
-- **Bidirectional combat**: NPCs fight back. Counter-attacks when they win the contested roll, with HP tracking on both sides.
-- **Plausibility engine**: LLM-based common sense filter. You can't pick up a tavern. Dragging an unwilling NPC requires a strength check.
-- **Entity-component world database**: SQLite source of truth. NPCs have stats, goals, knowledge, relationships, inventory. The LLM never writes directly to the database.
-- **Knowledge asymmetry**: Each NPC knows different facts. The barkeeper overheard the mayor's secret. The priest was told in confession. The player knows nothing until they find out.
-- **Validator catches hallucination**: Invented NPCs rejected. Dead NPCs stay dead. Movement requires valid paths. Items must exist in inventory.
-- **In Nomine-inspired mechanics**: Simple 2d6 resolution. Three realms (corporeal, ethereal, celestial). Theater of mind combat.
-- **Automated test suite**: Psychopath run, plausibility stress test, and diplomacy scenario. 17 turns, 0 bugs.
+### Core Engine
+- **d666 resolution**: 2d6 vs target number, 3rd d6 = check digit (degree of success). 111 = Divine Intervention, 666 = Infernal Intervention.
+- **Six stats**: Strength, Agility (Corporeal) / Intelligence, Precision (Ethereal) / Will, Perception (Celestial)
+- **Weapons and armor**: base damage + check digit - armor absorption, slashing/piercing/bludgeoning types
+- **Morale**: NPCs flee based on Will checks when HP drops below their threshold
+- **Economy**: silver currency, buy/sell with merchants
+- **Encumbrance**: weight tracking against Strength-derived capacity
+- **Survival**: hunger, thirst, fatigue counters with stat penalties
+- **Plausibility engine**: whitelist for common actions, LLM only consulted for ambiguous cases
+- **Anti-hallucination**: validator rejects invented NPCs, dead targets, impossible movement, items not in inventory
 
-## Quick Start
+### Supernatural Systems (Harbor City)
+- **Songs**: 5 Songs × 3 realms, d666 resolution, Essence cost, 13 effect handlers (heal, damage, shields, telekinesis, truth compulsion, and more)
+- **Disturbance**: BFS location graph traversal, Perception-based detection with distance penalty — use Songs carelessly and every celestial nearby knows
+- **Dissonance**: 7 Angel Choirs and 7 Demon Bands each with unique moral triggers. Seraphim can't lie. Mercurians can't harm humans. Calabim must destroy. Accumulates into permanent Discord flaws.
+- **Forces, Essence, Vessels, Roles**: full celestial character model with cover identities and power levels
 
-```bash
-# Requires Python 3.7+ and Ollama with gemma3:12b
-ollama pull gemma3:12b
-pip install requests
-python game.py
-```
+### Web UI
+- Dark-themed three-panel layout: character sheet, narrative center, NPC cards
+- Essence bar, Nature badge, Songs list, Dissonance counter (all hidden for mundane characters)
+- Clickable exits, swipe to re-roll narration, color-coded mechanics
+- NPC cards with goals, knowledge, disposition, and HP
 
-## The Millhaven Scenario
-
-The included scenario drops you into a small farming town with intertwined plot threads:
-
-- **15 locations**: tavern, market, temple, gates, forest, bandit camp, burned farm, and more
-- **7 NPCs** with goals, secrets, and dispositions
-- **10 world facts** (4 public, 6 secret) including a missing mayor, weapon smuggling, a poisoned well, and a planned bandit raid
-- **Multiple playstyles**: Be a psychopath who kills everyone. Be a diplomat who uncovers secrets. Find redemption at the temple and become a paladin. The engine handles all of them.
+### Two-Tier Release
+- **lore_config.py**: all setting terminology in one file. Swap it to rename everything for a commercial release with zero code changes.
 
 ## Architecture
 
 See [rpg-engine-architecture.md](rpg-engine-architecture.md) for the full design document.
 
-## Commands
+## Terminal Mode
 
-| Command | Effect |
-|---------|--------|
-| `look` | See current location, exits, NPCs with HP |
-| `inventory` | Check your items |
-| `status` | Character sheet |
-| `loot` | Take items from dead NPCs |
-| `debug` | Raw scene context (what the LLM sees) |
-| `quit` | Exit |
+The original terminal interface is still available for Millhaven:
 
-Anything else is sent to the LLM as a player action.
+```bash
+python game.py
+```
+
+Commands: `look`, `inventory`, `status`, `loot`, `debug`, `quit`. Anything else is a player action.
 
 ## Lineage
 
 Built on patterns from:
-- **Spine Reborn**: Validator pattern (propose -> validate -> commit)
+- **Spine Reborn**: Validator pattern (propose → validate → commit)
 - **Sovereignty**: Persistent world state integrity
 - **MinionAI**: Deterministic logic over LLM decisions
 - **LLM Profiler**: Know your model's strengths and weaknesses
-
 
 ## Legal
 
