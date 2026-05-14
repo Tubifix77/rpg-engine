@@ -72,6 +72,11 @@ Built on patterns from:
 - **MinionAI**: Deterministic logic over LLM decisions
 - **LLM Profiler**: Know your model's strengths and weaknesses
 
+
+## Legal
+
+In Nomine is a trademark of Steve Jackson Games. This is an unofficial fan project, not affiliated with or endorsed by Steve Jackson Games. Game mechanics are not copyrightable; setting terminology is used under fair use for a free, non-commercial fan work.
+
 ## License
 
 MIT
