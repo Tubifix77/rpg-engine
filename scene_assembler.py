@@ -96,6 +96,27 @@ class SceneAssembler:
         surv_txt = self.surv.format_for_scene(player_id)
         if surv_txt:
             parts.append(f"Physical state: {surv_txt}")
+        # Supernatural context
+        sup = self.db.get_supernatural(player_id)
+        if sup and sup.get("essence_max", 0) > 0:
+            nature = sup["nature"]
+            choir = sup.get("choir_or_band", "")
+            superior = sup.get("superior", "unknown")
+            parts.append(f"Nature: {nature} ({choir} of {superior})")
+            parts.append(f"Essence: {sup['essence']}/{sup['essence_max']}")
+            if sup.get("dissonance", 0) > 0:
+                parts.append(f"Dissonance: {sup['dissonance']}")
+            songs = self.db.get_songs(player_id)
+            if songs:
+                sl = [s["song_name"] + "(" + s["realm"][0] + str(s["level"]) + ")" for s in songs]
+                parts.append("Songs known: " + ", ".join(sl))
+            disc = self.db.get_discord(player_id)
+            for d in disc:
+                parts.append("Discord: " + d["discord_name"] + " (level " + str(d["level"]) + ")")
+            vessels = self.db.get_vessels(player_id)
+            if vessels:
+                v = vessels[0]
+                parts.append("Vessel: " + v["vessel_name"] + " (level " + str(v["vessel_level"]) + ")")
         if player.get("notes"):
             parts.append(f"Background: {player['notes']}")
         if p_knowledge:
